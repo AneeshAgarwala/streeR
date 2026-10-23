@@ -1,15 +1,23 @@
-#' @title Fit Binary SVM for STree
-#' @keywords internal
+# Internal binary SVM split fitter ---------------------------------------
+# Not exported; implementation detail of stree_split().
+#
+# Fits a single e1071::svm() hyperplane separating a (possibly one-vs-rest)
+# binary label vector `y`, after coercing factor/character predictors to
+# numeric, dropping zero-variance columns, and optionally scaling. Returns
+# the fitted model together with the left/right observation indices implied
+# by the sign of the decision function.
 stree_fit_binary_svm <- function(X, y, kernel, verbose = FALSE,
-                                use_scaling = TRUE, scaling_params = NULL, ...) {
+                                  use_scaling = TRUE, scaling_params = NULL, ...) {
+  empty_result <- list(
+    model = NULL, left_idx = NULL, right_idx = NULL,
+    scaling_params = NULL, used_features = NULL
+  )
 
   if (nrow(X) == 0 || length(y) == 0) {
-    if (verbose) cat("Empty data, cannot fit SVM\n")
-    return(list(model = NULL, left_idx = NULL, right_idx = NULL,
-                scaling_params = NULL, used_features = NULL))
+    if (verbose) message("Empty data, cannot fit SVM")
+    return(empty_result)
   }
 
-  # Convert factors to numeric
   X_processed <- X
   for (col in names(X_processed)) {
     if (is.factor(X_processed[[col]])) {
@@ -19,25 +27,23 @@ stree_fit_binary_svm <- function(X, y, kernel, verbose = FALSE,
     }
   }
 
-  # Remove constant columns (no variance)
   col_vars <- sapply(X_processed, function(col) {
-    if (is.numeric(col)) var(col, na.rm = TRUE) else 1
+    if (is.numeric(col)) stats::var(col, na.rm = TRUE) else 1
   })
   non_constant_cols <- col_vars > 1e-10
 
   if (sum(non_constant_cols) == 0) {
-    if (verbose) cat("All features are constant, cannot fit SVM\n")
-    return(list(model = NULL, left_idx = NULL, right_idx = NULL,
-                scaling_params = NULL, used_features = NULL))
+    if (verbose) message("All features are constant, cannot fit SVM")
+    return(empty_result)
   }
 
   X_filtered <- X_processed[, non_constant_cols, drop = FALSE]
 
-  # Apply custom scaling (matches sklearn)
   if (use_scaling) {
     if (is.null(scaling_params)) {
-      scaled_result <- standard_scaler(X_filtered, center = TRUE,
-                                       scale_var = TRUE, return_params = TRUE)
+      scaled_result <- standard_scaler(X_filtered,
+        center = TRUE, scale_var = TRUE, return_params = TRUE
+      )
       X_scaled <- scaled_result$data
       scaling_params <- scaled_result$params
     } else {
@@ -48,14 +54,13 @@ stree_fit_binary_svm <- function(X, y, kernel, verbose = FALSE,
     scaling_params <- NULL
   }
 
-  # Map kernel names
   svm_kernel <- switch(kernel,
-                       "linear" = "linear",
-                       "polynomial" = "polynomial",
-                       "radial" = "radial",
-                       "linear")
+    "linear" = "linear",
+    "polynomial" = "polynomial",
+    "radial" = "radial",
+    "linear"
+  )
 
-  # Fit SVM
   model <- tryCatch(
     {
       e1071::svm(
@@ -69,19 +74,17 @@ stree_fit_binary_svm <- function(X, y, kernel, verbose = FALSE,
       )
     },
     error = function(e) {
-      if (verbose) cat("SVM fitting failed:", e$message, "\n")
+      if (verbose) message("SVM fitting failed: ", e$message)
       NULL
     }
   )
 
   if (is.null(model)) {
-    return(list(model = NULL, left_idx = NULL, right_idx = NULL,
-                scaling_params = NULL, used_features = NULL))
+    return(empty_result)
   }
 
-  # Get decision values
   dec_values <- attr(
-    predict(model, X_scaled, decision.values = TRUE),
+    stats::predict(model, X_scaled, decision.values = TRUE),
     "decision.values"
   )
 
@@ -94,11 +97,11 @@ stree_fit_binary_svm <- function(X, y, kernel, verbose = FALSE,
   left_idx <- which(dec_values > 0)
   right_idx <- which(dec_values <= 0)
 
-  return(list(
+  list(
     model = model,
     left_idx = left_idx,
     right_idx = right_idx,
     scaling_params = scaling_params,
     used_features = names(X_filtered)
-  ))
+  )
 }

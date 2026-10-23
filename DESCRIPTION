@@ -1,16 +1,45 @@
-Package: STreeR
+Package: streeR
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Oblique Classification Trees Based on Support Vector Machines
 Version: 0.1.0
 Authors@R: c(
     person(
-      "Jane", "Doe",
-      email = "jane@example.com",
-      role = c("aut", "cre")
+      "Aneesh", "Agarwal",
+      email = "aaga0022@student.monash.edu",
+      role = c("aut", "cre", "cph")
+    ),
+    person(
+      "Jack", "Jewson",
+      email = "Jack.Jewson@monash.edu",
+      role = c("aut", "ths")
+    ),
+    person(
+      "Erik", "Sverdrup",
+      email = "Erik.Sverdrup@monash.edu",
+      role = c("aut", "ths")
     )
   )
-Description: More about what it does (maybe more than one line).
-    Continuation lines should be indented.
-License: What license is it under?
+Description: Fits single, multi-class oblique classification trees in which
+    each internal node's split is defined by a support vector machine
+    hyperplane rather than a threshold on a single variable. Multi-class 
+    problems are handled directly at every node with a one-vs-rest strategy i.e.,
+    each class is tried in turn and the hyperplane that minimizes an
+    impurity measure ('entropy' or Gini) is kept as the split. The approach
+    follows the 'STree' algorithm of Montanana, Gamez and Puerta (2021)
+    <doi:10.1007/978-3-030-85713-4_6>.
+License: GPL-3
 Encoding: UTF-8
-LazyData: true
+Depends: R (>= 3.5.0)
+Imports:
+    e1071,
+    stats
+Suggests:
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Roxygen: list(markdown = TRUE)
+Config/testthat/edition: 3
+URL: https://github.com/yourusername/streeR
+BugReports: https://github.com/yourusername/streeR/issues
+Config/roxygen2/version: 8.1.1

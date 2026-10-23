@@ -1,0 +1,102 @@
+---
+title: "Introduction to streeR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to streeR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Overview
+
+`streeR` fits **oblique classification trees**: decision trees in which each
+internal node splits the data using a support vector machine (SVM)
+hyperplane, instead of a threshold on a single variable. This lets a single
+node separate classes using a combination of features, which can produce
+much shallower and more accurate trees than an axis-parallel tree such as
+`rpart` on datasets where classes are separated by oblique boundaries.
+
+For datasets with more than two classes, `streeR` uses a **one-vs-rest**
+strategy at every node: each class is tried in turn as "this class" versus
+"everything else", an SVM hyperplane is fit for each candidate, and the
+hyperplane whose resulting split has the lowest weighted impurity (entropy
+or Gini) is kept. This approach, and the underlying algorithm, follows
+Montanana, Gamez and Puerta (2021), *STree: A Single Multi-class Oblique
+Decision Tree Based on Support Vector Machines*.
+
+## Fitting a tree
+
+```{r setup}
+library(streeR)
+```
+
+We use the classic `iris` dataset, which has three classes and four numeric
+predictors:
+
+```{r fit}
+fit <- stree(Species ~ ., data = iris, max_depth = 3, kernel = "linear")
+fit
+```
+
+`print()` shows a depth-first sketch of the tree: at each internal node, the
+class used in that node's one-vs-rest split (for multi-class problems) and
+the split's weighted impurity; at each leaf, the predicted class and the
+number of training observations that reached it.
+
+`summary()` gives a compact overview:
+
+```{r summary}
+summary(fit)
+```
+
+## Predicting
+
+`predict()` returns class labels by default, or a matrix of class
+probabilities with `type = "prob"`:
+
+```{r predict}
+predict(fit, iris[1:5, ])
+predict(fit, iris[1:5, ], type = "prob")
+```
+
+Training accuracy on `iris` (for illustration only — always evaluate on
+held-out data in practice):
+
+```{r accuracy}
+preds <- predict(fit, iris)
+mean(preds == iris$Species)
+```
+
+## Tuning
+
+Key arguments to `stree()`:
+
+- `kernel`: `"linear"`, `"polynomial"`, or `"radial"`, passed to the
+  underlying [e1071::svm()] call at each node.
+- `max_depth` / `min_samples`: standard tree stopping rules.
+- `impurity_measure`: `"entropy"` or `"gini"`, used only when there are more
+  than two classes at a node (to score the one-vs-rest candidates).
+- `cost`: the SVM cost/regularization parameter `C`.
+- `scale`: whether predictors are standardized before each node's SVM is
+  fit (recommended, and the default).
+- `...`: further arguments passed to [e1071::svm()], such as `gamma` for a
+  radial kernel.
+
+```{r radial}
+fit_radial <- stree(Species ~ ., data = iris, kernel = "radial", gamma = 0.5, max_depth = 3)
+summary(fit_radial)
+```
+
+## Reference
+
+Montanana, R., Gamez, J. A., Puerta, J. M. (2021). STree: A Single
+Multi-class Oblique Decision Tree Based on Support Vector Machines. In
+*Advances in Artificial Intelligence*, LNAI 12882, Springer.
+\doi{10.1007/978-3-030-85713-4_6}
